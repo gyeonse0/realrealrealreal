@@ -84,9 +84,15 @@ class SolutionPlotter:
         kwargs = dict(label="Depot", zorder=3, marker="s", s=80)
         ax.scatter(*self.data["node_coord"][self.data["depot"]], c="tab:red", **kwargs)
         for node, (x, y) in self.data["node_coord"].items():
-            ax.annotate(str(node), (x, y), textcoords="offset points", xytext=(0, 5), ha='center')
+            # 주석의 색상을 조건에 따라 설정
+            annotation_color = 'red' if self.data["priority_delivery_time"][node] != 0 else 'black'
+            ax.annotate(str(node), (x, y), textcoords="offset points", xytext=(0, 5), ha='center', color=annotation_color)
         ax.set_title(f"{name}\nTotal Energy OFV (cost): {new_state.cost_objective()} USD")
         ax.set_xlabel("X-coordinate")
         ax.set_ylabel("Y-coordinate")
-        ax.legend(frameon=False, ncol=3)
+        existing_handles = ax.get_legend_handles_labels()[0]
+        legend_elements = [
+            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=10, label='Priority Delivery Customer')
+        ]
+        ax.legend(handles= (existing_handles+legend_elements), frameon=False, ncol=3)
         plt.show()

@@ -42,6 +42,7 @@ class FileReader:
             "logistic_load": {},
             "availability_landing_spot": {},
             "customer_drone_preference": {},
+            "priority_delivery_time": {},
             "depot": None,
             "edge_km_d_type": None,
             "edge_km_t_type": None,
@@ -150,6 +151,8 @@ class FileReader:
                 self.section = "AVAILABILITY_LANDING_SPOT_SECTION"
             elif keyword == "CUSTOMER_DRONE_PREFERENCE_SECTION":
                 self.section = "CUSTOMER_DRONE_PREFERENCE_SECTION"
+            elif keyword == "PRIORITY_DELIVERY_TIME_SECTION":
+                self.section = "PRIORITY_DELIVERY_TIME_SECTION"
             elif keyword == "DEPOT_SECTION":
                 self.section = "DEPOT_SECTION"
             elif keyword == "EDGE_KM_D_FORMAT":
@@ -182,6 +185,8 @@ class FileReader:
             self.parse_availability_landing_spot(parts)
         elif self.section == "CUSTOMER_DRONE_PREFERENCE_SECTION":
             self.parse_customer_drone_preference(parts)
+        elif self.section == "PRIORITY_DELIVERY_TIME_SECTION":
+            self.parse_priority_delivery_time(parts)
         elif self.section == "DEPOT_SECTION":
             self.parse_depot(parts)
         elif self.section == "EDGE_KM_D":
@@ -217,6 +222,12 @@ class FileReader:
         try:
             customer_id, preference = int(parts[0]), int(parts[1])
             self.data["customer_drone_preference"][customer_id] = preference
+        except (ValueError, IndexError):
+            pass
+    def parse_priority_delivery_time(self, parts):
+        try:
+            customer_id, time = int(parts[0]), int(parts[1])
+            self.data["priority_delivery_time"][customer_id] = time
         except (ValueError, IndexError):
             pass
     def parse_depot(self, parts):

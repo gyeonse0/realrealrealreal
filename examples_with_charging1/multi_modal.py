@@ -67,7 +67,7 @@ drone_k_opt_count=0
 
 # 초기 설정
 init = initial_truck
-iteration_num=100000
+iteration_num=20
 
 start_temperature = 100
 end_temperature = 0.01
@@ -204,8 +204,9 @@ print("\nExecution time:", execution_time, "seconds")
 
 total_route, routes_soc_truck = MultiModalState(current_states[min_index]).truck_soc()
 total_route, routes_soc_drone = MultiModalState(current_states[min_index]).drone_soc()
-truck_soc, drone_soc = MultiModalState(current_states[min_index]).soc()
-truck_time_arrival, drone_time_arrival = MultiModalState(current_states[min_index]).new_time_arrival()
+truck_soc, drone_soc = MultiModalState(current_states[min_index]).soc()[:2]
+#truck_time_arrival, drone_time_arrival = MultiModalState(current_states[min_index]).new_time_arrival()
+truck_time_arrival, drone_time_arrival = MultiModalState(current_states[min_index]).renew_time_arrival() # 디버깅 완료
 
 total_routes = MultiModalState(current_states[min_index]).routes
 truck_current_kwh = data["battery_kwh_t"]
@@ -299,10 +300,11 @@ for i, route in enumerate(total_routes):
     plt.subplots_adjust(bottom=0.15, left=0.15)  # x축 레이블과 y축 레이블 이동
     plt.show()
 
+    ## 다음에 꼭 리스트에서 딕셔너리로 바꿔진거 감안해서 ploting 바꾸기 ! 지금은 에러날거임
     # Plot truck and drone elapsed time
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(range(len(route)), truck_time_arrival[i], marker='.', linestyle='-', label='eTruck', color='green')
-    ax.plot(range(len(route)), drone_time_arrival[i], marker='.', linestyle='--', label='eVTOL', color='orange')
+    ax.plot(list(truck_time_arrival[i].keys()), list(truck_time_arrival[i].values()), marker='.', linestyle='-', label='eTruck', color='green')
+    ax.plot(list(drone_time_arrival[i].keys()), list(drone_time_arrival[i].values()), marker='.', linestyle='--', label='eVTOL', color='orange')
 
     # Fill None values
     def fill_none_values(arr):
@@ -319,8 +321,8 @@ for i, route in enumerate(total_routes):
                     filled_arr[i] = (filled_arr[left_index] + filled_arr[right_index]) / 2
         return filled_arr
 
-    filled_truck_time = fill_none_values(truck_time_arrival[i])
-    filled_drone_time = fill_none_values(drone_time_arrival[i])
+    filled_truck_time = fill_none_values(list(truck_time_arrival[i].values()))
+    filled_drone_time = fill_none_values(list(drone_time_arrival[i].values()))
 
     ax.plot(range(len(route)), filled_truck_time, linestyle='-', color='green',)
     ax.plot(range(len(route)), filled_drone_time, linestyle='--', color='orange')

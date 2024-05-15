@@ -408,13 +408,12 @@ class Repair():
                 total_load = 0
 
         # max system duration 넘으면 false 수정버전
-        # Multimodalstate의 calculate_time_per_route()는 단일 route를 인풋으로 받아서 그 라우트의 total_time_list와 waiting_time_list를 반환
-        if MultiModalState.calculate_time_per_route(self, new_route)[0][-1] > data["maximum_system_duration"]:
+        if MultiModalState.new_time_arrival_per_route(self, new_route)['eVTOL'][0] > data["maximum_system_duration"]:
             return False
         
-        # max waiting time 넘으면 false 수정버전
-        if any(element > data["max_waiting_time"] for element in MultiModalState.calculate_time_per_route(self, new_route)[1]):
-            return False
+        #max waiting time 넘으면 false 수정버전
+        if MultiModalState.new_time_arrival_per_route(self, new_route)['Over Waiting Time']:
+           return False
         
         drone_soc = self.soc_calculate(new_route)[1]
         for soc in drone_soc:
@@ -533,11 +532,15 @@ class Repair():
 
         # max system duration 넘으면 false 수정버전
         # Multimodalstate의 calculate_time_per_route()는 단일 route를 인풋으로 받아서 그 라우트의 total_time_list와 waiting_time_list를 반환
-        if MultiModalState.calculate_time_per_route(self, new_route)[0][-1] > data["maximum_system_duration"]:
+        #if MultiModalState.calculate_time_per_route(self, new_route)[0][-1] > data["maximum_system_duration"]:
+        #    return False
+        
+        if MultiModalState.new_time_arrival_per_route(self, new_route)['eTruck'][0] > data["maximum_system_duration"]:
             return False
         
+        
         #max waiting time 넘으면 false 수정버전
-        if any(element > data["max_waiting_time"] for element in MultiModalState.calculate_time_per_route(self, new_route)[1]):
+        if MultiModalState.new_time_arrival_per_route(self, new_route)['Over Waiting Time']:
            return False
     
         

@@ -182,16 +182,43 @@ class MultiModalState:
 
         energy_cost = total_energy_consumption * 0.316
 
-        time_of_eTrucks = self.new_time_arrival()[0]
+        refund = 0
+        ## 아직은 잘 모르겠는데 자료구조 적으로 priority time이 0이 아닌 것에만 접근하고 그것의 차이만 더할 수 있으면 좋을 것 같음
+        for route in self.routes:
+            late_time = 0
+            truck_time = self.new_time_arrival_per_route(route)['eTruck']
+            drone_time = self.new_time_arrival_per_route(route)['eVTOL']
+            for customer in route[1:]: # time arrival이 데이터보다 더 클 때
+                if data["priority_delivery_time"][customer[0]] != 0:
+                    if truck_time[customer[0]] is not None:
+                        late_time += (truck_time[customer[0]] - data["priority_delivery_time"][customer[0]])
+                    else:
+                        late_time += (drone_time[customer[0]] - data["priority_delivery_time"][customer[0]])
+                    
+                    if late_time > 0:
+                        refund += np.exp(late_time / 10)
+
+            # priority_customers = filter(lambda customer: data["priority_delivery_time"][customer[0]] != 0 and customer[0] != 'source', truck_time.items())
+            # next(priority_customers)
+            # for priority_customer, time in priority_customers:
+            #     if time is not None:
+            #         late_time += (time - data["priority_delivery_time"][priority_customer])
+            #     else:
+            #         late_time += (drone_time[priority_customer] - data["priority_delivery_time"][priority_customer])
+            #     if late_time > 0:
+            #         refund = np.exp(late_time)
+        
+
+        time_of_eTrucks = self.renew_time_arrival()[0]
         carrier_cost = 0
         salary = 15
         for carrier in time_of_eTrucks:
             if carrier:
-                carrier_cost += (carrier[-1]/60) * salary
+                carrier_cost += (carrier[0]/60) * salary  # sink에 도착했을 때 carrier의 time arrival
             else:
                 print("경고: 빈 리스트가 포함되어 있습니다.")    
 
-        return energy_cost + carrier_cost
+        return energy_cost + carrier_cost + refund
 
     
     def new_objective(self):
@@ -644,6 +671,16 @@ class MultiModalState:
             time_arrival.append(time_table)
         return time_arrival
     
+    def renew_time_arrival(self):
+        truck_time_arrivals = []  # 각 route의 트럭 도착 시간을 담은 리스트
+        drone_time_arrivals = []  # 각 route의 드론 도착 시간을 담은 리스트
+
+        for route in self.routes:
+            truck_time_arrivals.append(self.new_time_arrival_per_route(route)['eTruck'])
+            drone_time_arrivals.append(self.new_time_arrival_per_route(route)['eVTOL'])
+
+        return truck_time_arrivals, drone_time_arrivals
+
     def new_time_arrival(self):
   
         truck_time_arrivals = []  # 각 route의 트럭 도착 시간을 담은 리스트
@@ -693,9 +730,9 @@ class MultiModalState:
                 elif (route[idx][1] in [IDLE, FLY]) and (route[idx-1][1] not in [ONLY_TRUCK, ONLY_DRONE]):
                     truck_time += data["edge_km_t"][route[idx-jump-1][0]][route[idx][0]] / data["speed_t"]
                     truck_time_table.append(truck_time)
-                    truck_time += data["service_time"]
-                    drone_time_table.append(truck_time)
                     drone_time = truck_time
+                    drone_time_table.append(drone_time)
+                    truck_time += data["service_time"]
 
                 elif route[idx][1] == ONLY_DRONE:
                     drone_time += data["edge_km_d"][route[idx-flee-1][0]][route[idx][0]] / data["speed_d"]
@@ -715,7 +752,60 @@ class MultiModalState:
 
         return truck_time_arrivals, drone_time_arrivals
 
-    
+    def new_time_arrival_per_route(self, route):
+        truck_time = 0
+        drone_time = 0
+        waiting_time = []
+        truck_time_table = {'source': 0}  # 트럭 도착 시간을 담을 리스트
+        drone_time_table = {'source': 0}  # 드론 도착 시간을 담을 리스트
+        jump = 0
+        flee = 0
+        for idx in range(1, len(route)):
+            catch = route[idx][1] == CATCH and route[idx][0] != 0
+            catch_at_sink = route[idx][1] == CATCH and route[idx][0] == 0
+            catch_with_fly = (route[idx][1] == FLY) and (route[idx-1][1] in [ONLY_TRUCK, ONLY_DRONE])
+            if catch_at_sink:
+                drone_time += data["edge_km_d"][route[idx-flee-1][0]][route[idx][0]] / data["speed_d"]
+                truck_time += data["edge_km_t"][route[idx-jump-1][0]][route[idx][0]] / data["speed_t"]
+                truck_time_table.update({route[idx][0] : truck_time})
+                drone_time_table.update({route[idx][0] : drone_time})
+                flee = 0
+                jump = 0
+
+            elif catch or catch_with_fly:
+                drone_time += data["edge_km_d"][route[idx-flee-1][0]][route[idx][0]] / data["speed_d"]
+                truck_time += data["edge_km_t"][route[idx-jump-1][0]][route[idx][0]] / data["speed_t"]
+                longer_time = max(drone_time, truck_time)
+                waiting_time.append(abs(drone_time - truck_time))
+                truck_time_table.update({route[idx][0] : longer_time})
+                drone_time_table.update({route[idx][0] : longer_time})
+                drone_time = longer_time
+                truck_time = longer_time
+                truck_time += data["service_time"]
+                flee = 0
+                jump = 0
+
+            elif (route[idx][1] in [IDLE, FLY]) and (route[idx-1][1] not in [ONLY_TRUCK, ONLY_DRONE]):
+                truck_time += data["edge_km_t"][route[idx-jump-1][0]][route[idx][0]] / data["speed_t"]
+                truck_time_table.update({route[idx][0] : truck_time})
+                drone_time = truck_time
+                drone_time_table.update({route[idx][0] : drone_time})
+                truck_time += data["service_time"]
+
+            elif route[idx][1] == ONLY_DRONE:
+                drone_time += data["edge_km_d"][route[idx-flee-1][0]][route[idx][0]] / data["speed_d"]
+                drone_time_table.update({route[idx][0] : drone_time})
+                drone_time += data["takeoff_landing_time"]
+                truck_time_table.update({route[idx][0] : None})
+                jump += 1
+            elif route[idx][1] == ONLY_TRUCK:
+                truck_time += data["edge_km_t"][route[idx-jump-1][0]][route[idx][0]] / data["speed_t"]
+                truck_time_table.update({route[idx][0] : truck_time})
+                truck_time += data["service_time"]
+                drone_time_table.update({route[idx][0] : None})
+                flee += 1
+
+        return {'eTruck' : truck_time_table, 'eVTOL' : drone_time_table, 'Over Waiting Time' : any(time > data["max_waiting_time"] for time in waiting_time)}
 
     def truck_soc(self):
         routes_t = []
